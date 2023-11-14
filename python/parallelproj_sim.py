@@ -1,5 +1,4 @@
-#TODO: - absolute scale of recon (maybe with sinogram recon)
-#      - additive MLEM
+#TODO: - additive MLEM
 
 from __future__ import annotations
 
@@ -15,7 +14,7 @@ from scipy.ndimage import gaussian_filter
 
 dev = "cpu"
 expected_num_trues = 1e6
-num_iter = 2
+num_iter = 3
 num_subsets = 20
 np.random.seed(1)
 
@@ -28,7 +27,7 @@ np.random.seed(1)
 # setup a line of response descriptor that describes the LOR start / endpoints of
 # a "narrow" clinical PET scanner with 9 rings
 lor_descriptor = utils.DemoPETScannerLORDescriptor(
-    np, dev, num_rings=2, radial_trim=141
+    np, dev, num_rings=4, radial_trim=141
 )
 
 # ----------------------------------------------------------------------------
@@ -48,8 +47,8 @@ n0, n1, n2 = img_shape
 
 # setup an image containing a box
 img = np.zeros(img_shape, dtype=np.float32, device=dev)
-img[(n0 // 4) : (3 * n0 // 4), (n1 // 4) : (3 * n1 // 4), :] = 1
-img[(7*n0 // 16) : (9 * n0 // 16), (6*n1 // 16) : (8 * n1 // 16), :] = 2
+img[(n0 // 4) : (3 * n0 // 4), (n1 // 4) : (3 * n1 // 4), 2:-2] = 1
+img[(7*n0 // 16) : (9 * n0 // 16), (6*n1 // 16) : (8 * n1 // 16), 2:-2] = 2.
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -57,7 +56,9 @@ img[(7*n0 // 16) : (9 * n0 // 16), (6*n1 // 16) : (8 * n1 // 16), :] = 2
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
-projector = utils.RegularPolygonPETProjector(lor_descriptor, img_shape, voxel_size)
+# setup a simple image-based resolution model using 4.5mm FWHM Gaussian smoothing
+res_model = parallelproj.GaussianFilterOperator(img_shape, sigma=4.5 / (2.355 * np.asarray(voxel_size)))
+projector = utils.RegularPolygonPETProjector(lor_descriptor, img_shape, voxel_size, resolution_model=res_model)
 projector.tof = False  # set this to True to get a time of flight projector
 
 # forward project the image
@@ -149,9 +150,15 @@ for it in range(num_iter):
         print(f'it {(it+1):03} / ss {(isub+1):03}', end='\r')
         xs_sub = xstart[isub::num_subsets,:]
         xe_sub = xend[isub::num_subsets,:]
-        exp = parallelproj.joseph3d_fwd(xs_sub, xe_sub, recon, projector.img_origin, voxel_size)
-        tmp = parallelproj.joseph3d_back(xs_sub, xe_sub, img_shape, projector.img_origin, voxel_size, 1/exp)
-        recon *= (tmp / (sens_img / num_subsets))
+
+        recon_sm = res_model(recon)
+
+        exp = parallelproj.joseph3d_fwd(xs_sub, xe_sub, recon_sm, projector.img_origin, voxel_size)
+        ratio_back = parallelproj.joseph3d_back(xs_sub, xe_sub, img_shape, projector.img_origin, voxel_size, 1/exp)
+
+        ratio_back_sm = res_model.adjoint(ratio_back)
+
+        recon *= (ratio_back_sm / (sens_img / num_subsets))
 
 #----------------------------------------------------------------------------
 #----------------------------------------------------------------------------
@@ -177,13 +184,15 @@ fig.tight_layout()
 fig.show()
 
 vmax = 1.2*img.max()
-fig2, ax2 = plt.subplots(1, 4, figsize=(16, 4))
-ax2[0].imshow(np.asarray(to_device(img[:, :, 1], "cpu")), vmin = 0, vmax = vmax, cmap = 'Greys')
-if projector.tof:
-    ax2[1].imshow(np.asarray(to_device(noise_free_sinogram[:, :, 0, 15], "cpu")), cmap = 'Greys')
-else:
-    ax2[1].imshow(np.asarray(to_device(noise_free_sinogram[:, :, 0], "cpu")), cmap = 'Greys')
-ax2[2].imshow(np.asarray(to_device(recon[:, :, 1], "cpu")), vmin = 0, vmax = vmax, cmap = 'Greys')
-ax2[3].imshow(gaussian_filter(np.asarray(to_device(recon[:, :, 1], "cpu")), 1.5), vmin = 0, vmax = vmax, cmap = 'Greys')
+fig2, ax2 = plt.subplots(3, recon.shape[2], figsize=(recon.shape[2] * 2, 3 * 2))
+for i in range(recon.shape[2]):
+    ax2[0,i].imshow(np.asarray(to_device(img[:, :, i], "cpu")), vmin = 0, vmax = vmax, cmap = 'Greys')
+    ax2[1,i].imshow(np.asarray(to_device(recon[:, :, i], "cpu")), vmin = 0, vmax = vmax, cmap = 'Greys')
+    ax2[2,i].imshow(gaussian_filter(np.asarray(to_device(recon[:, :, i], "cpu")), 1.5), vmin = 0, vmax = vmax, cmap = 'Greys')
+
+    ax2[0,i].set_title(f'ground truth sl {i+1}', fontsize = 'small')
+    ax2[1,i].set_title(f'LM recon {i+1}', fontsize = 'small')
+    ax2[2,i].set_title(f'LM recon smoothed {i+1}', fontsize = 'small')
+
 fig2.tight_layout()
 fig2.show()

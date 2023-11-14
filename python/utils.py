@@ -1066,11 +1066,7 @@ class RegularPolygonPETProjector(parallelproj.LinearOperator):
         else:
             self._views = views
 
-        if resolution_model is None:
-            self._resolution_model = parallelproj.GaussianFilterOperator(
-                self.in_shape, sigma=4.5 / (2.355 * self._voxel_size))
-        else:
-            self._resolution_model = resolution_model
+        self._resolution_model = resolution_model
 
         self._xstart, self._xend = lor_descriptor.get_lor_coordinates(
             views=self._views, sinogram_order=SinogramSpatialAxisOrder['RVP'])
@@ -1126,7 +1122,11 @@ class RegularPolygonPETProjector(parallelproj.LinearOperator):
         """nonTOF forward projection of input image x including image based resolution model"""
 
         dev = device(x)
-        x_sm = self._resolution_model(x)
+
+        if self._resolution_model is not None:
+            x_sm = self._resolution_model(x)
+        else:
+            x_sm = x
 
         if not self.tof:
             x_fwd = parallelproj.joseph3d_fwd(self._xstart, self._xend, x_sm,
@@ -1167,7 +1167,10 @@ class RegularPolygonPETProjector(parallelproj.LinearOperator):
                                 device=dev), self.tof_parameters.num_sigmas,
                 self.tof_parameters.num_tofbins)
 
-        return self._resolution_model.adjoint(y_back)
+        if self._resolution_model is not None:
+            y_back = self._resolution_model.adjoint(y_back)
+
+        return y_back
 
 
 
