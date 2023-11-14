@@ -1118,6 +1118,10 @@ class RegularPolygonPETProjector(parallelproj.LinearOperator):
             raise ValueError('tof_parameters must be a TOFParameters object')
         self._tof_parameters = value
 
+    @property
+    def img_origin(self) -> npt.NDArray:
+        return self._img_origin
+
     def _apply(self, x):
         """nonTOF forward projection of input image x including image based resolution model"""
 
