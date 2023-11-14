@@ -96,24 +96,24 @@ sino_det_end_index = sino_det_end_index.ravel()
 # generate listmode data from the noisy sinogram
 event_sino_inds = np.repeat(np.arange(noisy_sinogram.shape[0]), noisy_sinogram)
 
-# generate timestamps
-acquisition_length = 20 # say, in mins
-timestamps_in_lors = np.array([np.sort(np.random.uniform(0, acquisition_length,
-                                        size=noisy_sinogram[l])) for l in range(len(noisy_sinogram))])
+## generate timestamps
+#acquisition_length = 20 # say, in mins
+#timestamps_in_lors = np.array([np.sort(np.random.uniform(0, acquisition_length,
+#                                        size=noisy_sinogram[l])) for l in range(len(noisy_sinogram))])
 
 # shuffle the event sinogram indices
 np.random.shuffle(event_sino_inds)
 
-# assign timestamps for events - need one forward run over event_sino_inds
-timestamps_iter_table = np.zeros_like(noisy_sinogram, dtype=np.int64) # possibly many counts
-timestamps_in_events = np.zeros_like(noisy_sinogram, dtype=np.float32)
-for ind in event_sino_inds: # sorry, this is slow and ugly
-    timestamps_in_events[ind] = timestamps_in_lors[ind, timestamps_iter_table[ind]]
-    timestamps_iter_table[ind] += 1
+## assign timestamps for events - need one forward run over event_sino_inds
+#timestamps_iter_table = np.zeros_like(noisy_sinogram, dtype=np.int64) # possibly many counts
+#timestamps_in_events = np.zeros_like(noisy_sinogram, dtype=np.float32)
+#for ind in event_sino_inds: # sorry, this is slow and ugly
+#    timestamps_in_events[ind] = timestamps_in_lors[ind, timestamps_iter_table[ind]]
+#    timestamps_iter_table[ind] += 1
 
-# at this stage - lors are shuffled but timestamps are out of sequential order
-# need to sort globally event_sino_inds according to timestamps
-evend_sino_inds = event_sino_inds[np.argsort(timestamps_in_events)]
+## at this stage - lors are shuffled but timestamps are out of sequential order
+## need to sort globally event_sino_inds according to timestamps
+#evend_sino_inds = event_sino_inds[np.argsort(timestamps_in_events)]
 
 
 event_det_id_1 = sino_det_start_index[event_sino_inds]
