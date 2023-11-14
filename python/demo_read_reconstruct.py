@@ -30,7 +30,7 @@ xend = scanner_lut[event_det_id_2, :]
 # ----------------------------------------------------------------------------
 
 recon = np.ones(img_shape, dtype=np.float32, device=dev)
-img = np.tile(np.load("../SL.npy")[..., None], (1, 1, 4))
+img = np.tile(np.load("../data/SL.npy")[..., None], (1, 1, 4))
 num_iter = 2
 num_subsets = 20
 for it in range(num_iter):
