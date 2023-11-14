@@ -9,6 +9,8 @@ from array_api_compat import to_device
 # are performed on the cpu or cuda gpu
 
 dev = "cpu"
+expected_num_trues = 1e6
+np.random.seed(1)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -30,7 +32,7 @@ lor_descriptor = utils.DemoPETScannerLORDescriptor(
 
 # image properties
 voxel_size = (2.66, 2.66, 2.66)
-num_trans = 160
+num_trans = 140
 num_ax = 2 * lor_descriptor.scanner.num_modules
 
 # setup a box like test image
@@ -48,22 +50,39 @@ img[(n0 // 4) : (3 * n0 // 4), (n1 // 4) : (3 * n1 // 4), :] = 1
 # ----------------------------------------------------------------------------
 
 projector = utils.RegularPolygonPETProjector(lor_descriptor, img_shape, voxel_size)
-
 projector.tof = False  # set this to True to get a time of flight projector
 
-img_fwd = projector(img)
-back_img = projector.adjoint(img_fwd)
+# forward project the image
+noise_free_sinogram = projector(img)
 
+# rescale the forward projection and image such that we get the expected number of trues
+scale = expected_num_trues / np.sum(noise_free_sinogram)
+noise_free_sinogram *= scale
+img *= scale
 
-# get the start and end points of all sinogram bins
-xstart, xend = lor_descriptor.get_lor_coordinates()
+# calculate the sensitivity image
+sens_img = projector.adjoint(np.ones(noise_free_sinogram.shape, device=dev, dtype=np.float32))
+
+## get the start and end points of all sinogram bins
+#xstart, xend = lor_descriptor.get_lor_coordinates()
 
 # get the two dimensional indices of all sinogram bins
 start_mods, end_mods, start_inds, end_inds = lor_descriptor.get_lor_indices()
 
 # convert the 2D indices to a 1D index
-start_index = lor_descriptor.scanner.num_modules * start_mods + start_inds
-end_index = lor_descriptor.scanner.num_modules * end_mods + end_inds
+det_start_index = lor_descriptor.scanner.num_modules * start_mods + start_inds
+det_end_index = lor_descriptor.scanner.num_modules * end_mods + end_inds
+
+# add poisson noise to the noise free sinogram
+noisy_sinogram = np.random.poisson(noise_free_sinogram)
+
+# ravel the noisy sinogram and the detector start and end "index" sinograms 
+noisy_sinogram = noisy_sinogram.ravel()
+det_start_index = det_start_index.ravel()
+det_end_index = det_end_index.ravel()
+
+# generate listmode data from the noisy sinogram
+inds = np.repeat(np.arange(noisy_sinogram.shape[0]), noisy_sinogram)
 
 
 # ----------------------------------------------------------------------------
@@ -86,9 +105,9 @@ fig.show()
 fig2, ax2 = plt.subplots(1, 3, figsize=(15, 5))
 ax2[0].imshow(np.asarray(to_device(img[:, :, 3], "cpu")))
 if projector.tof:
-    ax2[1].imshow(np.asarray(to_device(img_fwd[:, :, 0, 15], "cpu")))
+    ax2[1].imshow(np.asarray(to_device(noise_free_sinogram[:, :, 0, 15], "cpu")))
 else:
-    ax2[1].imshow(np.asarray(to_device(img_fwd[:, :, 0], "cpu")))
-ax2[2].imshow(np.asarray(to_device(back_img[:, :, 3], "cpu")))
+    ax2[1].imshow(np.asarray(to_device(noise_free_sinogram[:, :, 0], "cpu")))
+ax2[2].imshow(np.asarray(to_device(sens_img[:, :, 3], "cpu")))
 fig2.tight_layout()
 fig2.show()
