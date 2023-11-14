@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 
-sys.path.append("/workspaces/LMSimRecon/PETSIRD/python")
+sys.path.append("../PETSIRD/python")
 import prd
 import numpy as np
 
