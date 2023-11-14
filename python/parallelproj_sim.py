@@ -1,4 +1,4 @@
-#TODO: - additive MLEM
+# TODO: - additive MLEM
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ n0, n1, n2 = img_shape
 # setup an image containing a box
 img = np.zeros(img_shape, dtype=np.float32, device=dev)
 img[(n0 // 4) : (3 * n0 // 4), (n1 // 4) : (3 * n1 // 4), 2:-2] = 1
-img[(7*n0 // 16) : (9 * n0 // 16), (6*n1 // 16) : (8 * n1 // 16), 2:-2] = 2.
+img[(7 * n0 // 16) : (9 * n0 // 16), (6 * n1 // 16) : (8 * n1 // 16), 2:-2] = 2.0
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -57,8 +57,12 @@ img[(7*n0 // 16) : (9 * n0 // 16), (6*n1 // 16) : (8 * n1 // 16), 2:-2] = 2.
 # ----------------------------------------------------------------------------
 
 # setup a simple image-based resolution model using 4.5mm FWHM Gaussian smoothing
-res_model = parallelproj.GaussianFilterOperator(img_shape, sigma=4.5 / (2.355 * np.asarray(voxel_size)))
-projector = utils.RegularPolygonPETProjector(lor_descriptor, img_shape, voxel_size, resolution_model=res_model)
+res_model = parallelproj.GaussianFilterOperator(
+    img_shape, sigma=4.5 / (2.355 * np.asarray(voxel_size))
+)
+projector = utils.RegularPolygonPETProjector(
+    lor_descriptor, img_shape, voxel_size, resolution_model=res_model
+)
 projector.tof = False  # set this to True to get a time of flight projector
 
 # forward project the image
@@ -70,14 +74,20 @@ noise_free_sinogram *= scale
 img *= scale
 
 # calculate the sensitivity image
-sens_img = projector.adjoint(np.ones(noise_free_sinogram.shape, device=dev, dtype=np.float32))
+sens_img = projector.adjoint(
+    np.ones(noise_free_sinogram.shape, device=dev, dtype=np.float32)
+)
 
 # get the two dimensional indices of all sinogram bins
 start_mods, end_mods, start_inds, end_inds = lor_descriptor.get_lor_indices()
 
 # generate two sinograms that contain the linearized detector start and end indices
-sino_det_start_index =  lor_descriptor.scanner.num_lor_endpoints_per_module[0] * start_mods + start_inds
-sino_det_end_index =  lor_descriptor.scanner.num_lor_endpoints_per_module[0] * end_mods + end_inds
+sino_det_start_index = (
+    lor_descriptor.scanner.num_lor_endpoints_per_module[0] * start_mods + start_inds
+)
+sino_det_end_index = (
+    lor_descriptor.scanner.num_lor_endpoints_per_module[0] * end_mods + end_inds
+)
 
 # add poisson noise to the noise free sinogram
 noisy_sinogram = np.random.poisson(noise_free_sinogram)
@@ -97,35 +107,42 @@ sino_det_end_index = sino_det_end_index.ravel()
 event_sino_inds = np.repeat(np.arange(noisy_sinogram.shape[0]), noisy_sinogram)
 
 ## generate timestamps
-#acquisition_length = 20 # say, in mins
-#timestamps_in_lors = np.array([np.sort(np.random.uniform(0, acquisition_length,
-#                                        size=noisy_sinogram[l])) for l in range(len(noisy_sinogram))])
+acquisition_length = 20  # say, in mins
+timestamps_in_lors = [
+    np.sort(np.random.uniform(0, acquisition_length, size=noisy_sinogram[l]))
+    for l in range(len(noisy_sinogram))
+]
 
 # shuffle the event sinogram indices
 np.random.shuffle(event_sino_inds)
 
 ## assign timestamps for events - need one forward run over event_sino_inds
-#timestamps_iter_table = np.zeros_like(noisy_sinogram, dtype=np.int64) # possibly many counts
-#timestamps_in_events = np.zeros_like(noisy_sinogram, dtype=np.float32)
-#for ind in event_sino_inds: # sorry, this is slow and ugly
-#    timestamps_in_events[ind] = timestamps_in_lors[ind, timestamps_iter_table[ind]]
-#    timestamps_iter_table[ind] += 1
+timestamps_iter_table = np.zeros_like(
+    noisy_sinogram, dtype=np.int64
+)  # possibly many counts so using int64
+timestamps_in_events = np.zeros_like(event_sino_inds, dtype=np.float32)
+for ind in range(event_sino_inds.shape[0]):  # sorry, this is slow and ugly
+    lor_ind = event_sino_inds[ind]
+    timestamps_in_events[ind] = timestamps_in_lors[lor_ind][
+        timestamps_iter_table[lor_ind]
+    ]
+    timestamps_iter_table[lor_ind] += 1
 
 ## at this stage - lors are shuffled but timestamps are out of sequential order
 ## need to sort globally event_sino_inds according to timestamps
-#evend_sino_inds = event_sino_inds[np.argsort(timestamps_in_events)]
+event_sino_inds = event_sino_inds[np.argsort(timestamps_in_events)]
 
 
 event_det_id_1 = sino_det_start_index[event_sino_inds]
 event_det_id_2 = sino_det_end_index[event_sino_inds]
 
-print(f'number of events: {event_det_id_1.shape[0]}')
+print(f"number of events: {event_det_id_1.shape[0]}")
 
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
-#---- convert LM detector ID arrays into PRD here ---------------------------
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ---- convert LM detector ID arrays into PRD here ---------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 # get a lookup table that contains the world coordinates of all scanner detectors
 # this is a 2D array of shape (num_detectors, 3)
@@ -138,11 +155,11 @@ scanner_lut = lor_descriptor.scanner.all_lor_endpoints
 #
 #
 
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
-#---- read events back from PRD here ----------------------------------------
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ---- read events back from PRD here ----------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 #
 #
@@ -155,62 +172,77 @@ scanner_lut = lor_descriptor.scanner.all_lor_endpoints
 xstart = scanner_lut[event_det_id_1, :]
 xend = scanner_lut[event_det_id_2, :]
 
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
-#---- LM recon using the event detector IDs and the scanner LUT -------------
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ---- LM recon using the event detector IDs and the scanner LUT -------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 recon = np.ones(img_shape, dtype=np.float32, device=dev)
 
 for it in range(num_iter):
     for isub in range(num_subsets):
-        print(f'it {(it+1):03} / ss {(isub+1):03}', end='\r')
-        xs_sub = xstart[isub::num_subsets,:]
-        xe_sub = xend[isub::num_subsets,:]
+        print(f"it {(it+1):03} / ss {(isub+1):03}", end="\r")
+        xs_sub = xstart[isub::num_subsets, :]
+        xe_sub = xend[isub::num_subsets, :]
 
         recon_sm = res_model(recon)
 
-        exp = parallelproj.joseph3d_fwd(xs_sub, xe_sub, recon_sm, projector.img_origin, voxel_size)
-        ratio_back = parallelproj.joseph3d_back(xs_sub, xe_sub, img_shape, projector.img_origin, voxel_size, 1/exp)
+        exp = parallelproj.joseph3d_fwd(
+            xs_sub, xe_sub, recon_sm, projector.img_origin, voxel_size
+        )
+        ratio_back = parallelproj.joseph3d_back(
+            xs_sub, xe_sub, img_shape, projector.img_origin, voxel_size, 1 / exp
+        )
 
         ratio_back_sm = res_model.adjoint(ratio_back)
 
-        recon *= (ratio_back_sm / (sens_img / num_subsets))
+        recon *= ratio_back_sm / (sens_img / num_subsets)
 
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # show the scanner geometry and one view in one sinogram plane
 fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(projection="3d")
-lor_descriptor.scanner.show_lor_endpoints(ax, show_linear_index=True, annotation_fontsize=4)
+lor_descriptor.scanner.show_lor_endpoints(
+    ax, show_linear_index=True, annotation_fontsize=4
+)
 
 # plot the LORs of the first n events
-for i, col in enumerate(('red','green','blue')):
+for i, col in enumerate(("red", "green", "blue")):
     xs = scanner_lut[event_det_id_1[i], :]
-    xe= scanner_lut[event_det_id_2[i], :]
+    xe = scanner_lut[event_det_id_2[i], :]
 
     ax.plot(
         [xs[0], xe[0]],
         [xs[1], xe[1]],
         [xs[2], xe[2]],
         color=col,
-        linewidth=1.,
+        linewidth=1.0,
     )
 
 fig.tight_layout()
 fig.show()
 
-vmax = 1.2*img.max()
+vmax = 1.2 * img.max()
 fig2, ax2 = plt.subplots(3, recon.shape[2], figsize=(recon.shape[2] * 2, 3 * 2))
 for i in range(recon.shape[2]):
-    ax2[0,i].imshow(np.asarray(to_device(img[:, :, i], "cpu")), vmin = 0, vmax = vmax, cmap = 'Greys')
-    ax2[1,i].imshow(np.asarray(to_device(recon[:, :, i], "cpu")), vmin = 0, vmax = vmax, cmap = 'Greys')
-    ax2[2,i].imshow(gaussian_filter(np.asarray(to_device(recon[:, :, i], "cpu")), 1.5), vmin = 0, vmax = vmax, cmap = 'Greys')
+    ax2[0, i].imshow(
+        np.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+    )
+    ax2[1, i].imshow(
+        np.asarray(to_device(recon[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+    )
+    ax2[2, i].imshow(
+        gaussian_filter(np.asarray(to_device(recon[:, :, i], "cpu")), 1.5),
+        vmin=0,
+        vmax=vmax,
+        cmap="Greys",
+    )
 
-    ax2[0,i].set_title(f'ground truth sl {i+1}', fontsize = 'small')
-    ax2[1,i].set_title(f'LM recon {i+1}', fontsize = 'small')
-    ax2[2,i].set_title(f'LM recon smoothed {i+1}', fontsize = 'small')
+    ax2[0, i].set_title(f"ground truth sl {i+1}", fontsize="small")
+    ax2[1, i].set_title(f"LM recon {i+1}", fontsize="small")
+    ax2[2, i].set_title(f"LM recon smoothed {i+1}", fontsize="small")
 
 fig2.tight_layout()
 fig2.show()
