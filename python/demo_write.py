@@ -1,6 +1,3 @@
-# TODO: - absolute scale of recon (maybe with sinogram recon)
-#      - additive MLEM
-
 from __future__ import annotations
 
 import parallelproj
@@ -8,8 +5,7 @@ import utils
 import array_api_compat.numpy as np
 import matplotlib.pyplot as plt
 from array_api_compat import to_device
-from scipy.ndimage import gaussian_filter
-from io_yardl import write_yardl, read_yardl
+from io_yardl import write_yardl
 
 # device variable (cpu or cuda) that determines whether calculations
 # are performed on the cpu or cuda gpu
@@ -29,7 +25,7 @@ np.random.seed(42)
 # setup a line of response descriptor that describes the LOR start / endpoints of
 # a "narrow" clinical PET scanner with 9 rings
 lor_descriptor = utils.DemoPETScannerLORDescriptor(
-    np, dev, num_rings=2, radial_trim=141
+    np, dev, num_rings=4, radial_trim=141
 )
 
 # ----------------------------------------------------------------------------
@@ -48,7 +44,10 @@ img_shape = (num_trans, num_trans, num_ax)
 n0, n1, n2 = img_shape
 
 # setup an image containing a box
-img = np.tile(np.load("../data/SL.npy")[..., None], (1, 1, 4))
+
+img = np.tile(np.load("../data/SL.npy")[..., None], (1, 1, num_ax)).astype(np.float32)
+img[:, :, :2] = 0
+img[:, :, -2:] = 0
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -56,7 +55,12 @@ img = np.tile(np.load("../data/SL.npy")[..., None], (1, 1, 4))
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
-projector = utils.RegularPolygonPETProjector(lor_descriptor, img_shape, voxel_size)
+res_model = parallelproj.GaussianFilterOperator(
+    img_shape, sigma=4.5 / (2.355 * np.asarray(voxel_size))
+)
+projector = utils.RegularPolygonPETProjector(
+    lor_descriptor, img_shape, voxel_size, resolution_model=res_model
+)
 projector.tof = False  # set this to True to get a time of flight projector
 
 # forward project the image
@@ -117,5 +121,23 @@ print(f"number of events: {event_det_id_1.shape[0]}")
 # this is a 2D array of shape (num_detectors, 3)
 scanner_lut = lor_descriptor.scanner.all_lor_endpoints
 
-# write and re-read
-write_yardl(event_det_id_1, event_det_id_2, scanner_lut, output_file="write_test.yardl")
+# write the data to PETSIRD
+write_yardl(event_det_id_1, event_det_id_2, scanner_lut, output_file="write_test.prd")
+
+# HACK: write the sensitivity image to file
+np.save("sensitivity_image.npy", sens_img)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+vmax = 1.2 * img.max()
+fig2, ax2 = plt.subplots(1, img.shape[2], figsize=(img.shape[2] * 2, 2))
+for i in range(img.shape[2]):
+    ax2[i].imshow(
+        np.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+    )
+    ax2[i].set_title(f"ground truth sl {i+1}", fontsize="small")
+
+fig2.tight_layout()
+fig2.savefig("simulated_phantom.png")
