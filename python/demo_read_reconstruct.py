@@ -3,7 +3,7 @@ from __future__ import annotations
 import parallelproj
 from array_api_compat import to_device
 import matplotlib.pyplot as plt
-from io_yardl import read_prd_to_numpy_arrays
+from prd_io import read_prd_to_numpy_arrays
 from pathlib import Path
 
 import array_api_compat.numpy as np
