@@ -6,46 +6,96 @@ import prd
 import numpy as np
 
 
-def write_yardl(
-    det_1_array: np.array[int],
-    det_2_array: np.array[int],
-    scanner_lut: np.array[float],
+def write_prd_from_numpy_arrays(
+    detector_1_id_array: np.array[int],
+    detector_2_id_array: np.array[int],
+    scanner_lut: np.array[float, float],
+    tof_idx_array: np.array[int] | None = None,
+    energy_1_idx_array: np.array[int] | None = None,
+    energy_2_idx_array: np.array[int] | None = None,
     output_file: str | None = None,
+    num_events: int | None = None,
 ) -> None:
-    """Writes a yardl list mode file from two detector arrays and a scanner lookup table.
+    """Write a PRD file from numpy arrays. Currently all into one time block
 
-    Args:
-        output_file (str): File to write to.
-        det_1_array (np.array[int]): Indices corresponding to detector 1.
-        det_2_array (np.array[int]): Indices corresponding to detector 2.
-        scanner_lut (np.array[float]): Lookup table for detector world coordinates.
+    Parameters
+    ----------
+    detector_1_id_array : np.array[int]
+        array containing the detector 1 id for each event
+    detector_2_id_array : np.array[int]
+        array containing the detector 2 id for each event
+    scanner_lut : np.array[float, float]
+        a 2D float array of size (num_det, 3) containing the world
+        coordinates of each detector (in mm)
+    tof_idx_array : np.array[int] | None, optional
+        array containing the tof bin index of each event
+    energy_1_idx_array : np.array[int] | None, optional
+        array containing the energy 1 index of each event
+    energy_2_idx_array : np.array[int] | None, optional
+        array containing the energy 2 index of each event
+    output_file : str | None, optional
+        output file, if None write to stdout
+    num_events : int | None, optional
+        number of events to write, if None write all events
     """
-    num_counts = len(det_1_array)
-    # create list of detectors
-    detectors = []
-    for i in range(scanner_lut.shape[0]):
-        detectors.append(
-            prd.Detector(
-                id=i, x=scanner_lut[i, 0], y=scanner_lut[i, 1], z=scanner_lut[i, 2]
-            )
+
+    if num_events is None:
+        num_events = detector_1_id_array.shape[0]
+
+    detector_list = [
+        prd.Detector(
+            id=int(i), x=float(coords[0]), y=float(coords[1]), z=float(coords[2])
         )
-    scanner_information = prd.ScannerInformation(detectors=detectors)
+        for i, coords in enumerate(scanner_lut)
+    ]
+
+    scanner_information = prd.ScannerInformation(detectors=detector_list)
+
     events = []
-    for i in range(num_counts):
+    for i in range(num_events):
+        det_id_1 = int(detector_1_id_array[i])
+        det_id_2 = int(detector_2_id_array[i])
+
+        if tof_idx_array is not None:
+            tof_idx = int(tof_idx_array[i])
+        else:
+            tof_idx = 0
+
+        if energy_1_idx_array is not None:
+            energy_1_idx = int(energy_1_idx_array[i])
+        else:
+            energy_1_idx = 0
+
+        if energy_2_idx_array is not None:
+            energy_2_idx = int(energy_2_idx_array[i])
+        else:
+            energy_2_idx = 0
+
         events.append(
             prd.CoincidenceEvent(
-                detector_1_id=int(det_1_array[i]), detector_2_id=int(det_2_array[i])
+                detector_1_id=det_id_1,
+                detector_2_id=det_id_2,
+                tof_idx=tof_idx,
+                energy_1_idx=energy_1_idx,
+                energy_2_idx=energy_2_idx,
             )
         )
+
     time_block = prd.TimeBlock(id=0, prompt_events=events)
+
     if output_file is None:
         with prd.BinaryPrdExperimentWriter(sys.stdout.buffer) as writer:
             writer.write_header(prd.Header(scanner=scanner_information))
             writer.write_time_blocks((time_block,))
     else:
-        with prd.BinaryPrdExperimentWriter(output_file) as writer:
-            writer.write_header(prd.Header(scanner=scanner_information))
-            writer.write_time_blocks((time_block,))
+        if output_file.endswith(".ndjson"):
+            with prd.NDJsonPrdExperimentWriter(output_file) as writer:
+                writer.write_header(prd.Header(scanner=scanner_information))
+                writer.write_time_blocks((time_block,))
+        else:
+            with prd.BinaryPrdExperimentWriter(output_file) as writer:
+                writer.write_header(prd.Header(scanner=scanner_information))
+                writer.write_time_blocks((time_block,))
 
 
 def read_yardl(prd_file: str) -> tuple[np.array[int], np.array[int], np.array[float]]:
@@ -77,13 +127,13 @@ def read_yardl(prd_file: str) -> tuple[np.array[int], np.array[int], np.array[fl
     return det_1, det_2, scanner_lut
 
 
-if __name__ == "__main__":
-    det_1 = np.asarray([0, 1, 2, 3, 4])
-    det_2 = np.asarray([5, 6, 7, 8, 9])
-    scanner_lut = np.random.rand(10, 3)
-    write_yardl(det_1, det_2, scanner_lut, output_file="test.yardl")
-    det_1_read, det_2_read, scanner_lut_read = read_yardl("test.yardl")
-    print(scanner_lut == scanner_lut_read)
-    print(np.isclose(scanner_lut, scanner_lut_read).all())
-    print(scanner_lut.dtype)
-    print(scanner_lut_read.dtype)
+#if __name__ == "__main__":
+#    det_1 = np.asarray([0, 1, 2, 3, 4])
+#    det_2 = np.asarray([5, 6, 7, 8, 9])
+#    scanner_lut = np.random.rand(10, 3)
+#    write_yardl(det_1, det_2, scanner_lut, output_file="test.yardl")
+#    det_1_read, det_2_read, scanner_lut_read = read_yardl("test.yardl")
+#    print(scanner_lut == scanner_lut_read)
+#    print(np.isclose(scanner_lut, scanner_lut_read).all())
+#    print(scanner_lut.dtype)
+#    print(scanner_lut_read.dtype)

@@ -5,17 +5,19 @@ import utils
 import array_api_compat.numpy as np
 import matplotlib.pyplot as plt
 from array_api_compat import to_device
-from io_yardl import write_yardl
+from io_yardl import write_prd_from_numpy_arrays
 from pathlib import Path
 
-# device variable (cpu or cuda) that determines whether calculations
-# are performed on the cpu or cuda gpu
+dev: str = "cpu"
+output_dir: str = "../data/sim_LM_acq_1"
+output_sens_img_file: str = "sensitivity_image.npy"
+output_prd_file: str = "simulated_lm.prd"
+expected_num_trues: float = 1e6
 
-dev = "cpu"
-expected_num_trues = 1e6
-num_iter = 2
-num_subsets = 20
 np.random.seed(42)
+
+# create the output directory
+Path(output_dir).mkdir(exist_ok=True, parents=True)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -123,12 +125,17 @@ print(f"number of events: {event_det_id_1.shape[0]}")
 scanner_lut = lor_descriptor.scanner.all_lor_endpoints
 
 # write the data to PETSIRD
-write_yardl(
-    event_det_id_1, event_det_id_2, scanner_lut, output_file="../data/write_test.prd"
+write_prd_from_numpy_arrays(
+    event_det_id_1,
+    event_det_id_2,
+    scanner_lut,
+    output_file=str(Path(output_dir) / output_prd_file),
 )
 
 # HACK: write the sensitivity image to file
-np.save("../data/sensitivity_image.npy", sens_img)
+# this is currently needed since it is not agreed on how to store
+# all valid detector pair combinations + attn / sens values in the PRD file
+np.save(Path(output_dir) / output_sens_img_file, sens_img)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------

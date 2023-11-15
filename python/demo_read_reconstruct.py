@@ -8,25 +8,32 @@ from io_yardl import read_yardl
 from pathlib import Path
 
 dev = "cpu"
+lm_data_dir: str = "../data/sim_LM_acq_1"
+sens_img_file: str = "sensitivity_image.npy"
+prd_file: str = "simulated_lm.prd"
 
-# image properties
+num_iter: int = 2
+num_subsets: int = 20
+
+# hard coded input parameters
 voxel_size = (2.66, 2.66, 2.66)
 img_shape = (128, 128, 8)
 img_origin = [-168.91, -168.91, -9.31]
 
-num_iter = 2
-num_subsets = 20
-
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
-event_det_id_1, event_det_id_2, scanner_lut = read_yardl("../data/write_test.prd")
+event_det_id_1, event_det_id_2, scanner_lut = read_yardl(
+    str(Path(lm_data_dir) / prd_file)
+)
 
 xstart = scanner_lut[event_det_id_1, :]
 xend = scanner_lut[event_det_id_2, :]
 
-# HACK: load the sensitivity image
-sens_img = np.load("../data/sensitivity_image.npy")
+# HACK: write the sensitivity image to file
+# this is currently needed since it is not agreed on how to store
+# all valid detector pair combinations + attn / sens values in the PRD file
+sens_img = np.load(Path(lm_data_dir) / sens_img_file).astype(np.float32)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
