@@ -4,7 +4,7 @@ import parallelproj
 import array_api_compat.numpy as np
 from array_api_compat import to_device
 import matplotlib.pyplot as plt
-from io_yardl import read_yardl
+from io_yardl import read_prd_to_numpy_arrays
 from pathlib import Path
 
 dev = "cpu"
@@ -23,12 +23,14 @@ img_origin = [-168.91, -168.91, -9.31]
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
-event_det_id_1, event_det_id_2, scanner_lut = read_yardl(
-    str(Path(lm_data_dir) / prd_file)
+# TODO: used array structures with named columns
+
+event_attributes, scanner_lut = read_prd_to_numpy_arrays(
+    str(Path(lm_data_dir) / prd_file), read_tof=False, read_energy=False
 )
 
-xstart = scanner_lut[event_det_id_1, :]
-xend = scanner_lut[event_det_id_2, :]
+xstart = scanner_lut[event_attributes[:, 0], :]
+xend = scanner_lut[event_attributes[:, 1], :]
 
 # HACK: write the sensitivity image to file
 # this is currently needed since it is not agreed on how to store

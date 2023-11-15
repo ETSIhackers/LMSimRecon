@@ -98,7 +98,9 @@ def write_prd_from_numpy_arrays(
                 writer.write_time_blocks((time_block,))
 
 
-def read_yardl(prd_file: str) -> tuple[np.array[int], np.array[int], np.array[float]]:
+def read_prd_to_numpy_arrays(
+    prd_file: str, read_tof: bool | None = None, read_energy: bool | None = None
+) -> tuple[np.array[int], np.array[int], np.array[float]]:
     """Reads a yardl list mode file and returns two detector arrays and a scanner lookup table.
 
     Args:
@@ -107,33 +109,66 @@ def read_yardl(prd_file: str) -> tuple[np.array[int], np.array[int], np.array[fl
     Returns:
         tuple[np.array[int], np.array[int], np.array[float]]: Two detector arrays and a scanner lookup table.
     """
+
     with prd.BinaryPrdExperimentReader(prd_file) as reader:
         # Read header and build lookup table
         header = reader.read_header()
-        scanner_information = header.scanner
-        detectors = scanner_information.detectors
-        scanner_lut = np.zeros((len(detectors), 3))
-        for i, detector in enumerate(detectors):
-            scanner_lut[i, 0] = detector.x
-            scanner_lut[i, 1] = detector.y
-            scanner_lut[i, 2] = detector.z
-        # Read events
-        detector_hits = []
-        for time_blocks in reader.read_time_blocks():
-            for event in time_blocks.prompt_events:
-                prompt = [event.detector_1_id, event.detector_2_id]
-                detector_hits.append(prompt)
-        det_1, det_2 = np.asarray(detector_hits).T
-    return det_1, det_2, scanner_lut
 
+        # bool that decides whether the scanner has TOF and whether it is
+        # meaningful to read TOF
+        if read_tof is None:
+            read_tof: bool = len(header.scanner.tof_bin_edges) <= 1
 
-#if __name__ == "__main__":
-#    det_1 = np.asarray([0, 1, 2, 3, 4])
-#    det_2 = np.asarray([5, 6, 7, 8, 9])
-#    scanner_lut = np.random.rand(10, 3)
-#    write_yardl(det_1, det_2, scanner_lut, output_file="test.yardl")
-#    det_1_read, det_2_read, scanner_lut_read = read_yardl("test.yardl")
-#    print(scanner_lut == scanner_lut_read)
-#    print(np.isclose(scanner_lut, scanner_lut_read).all())
-#    print(scanner_lut.dtype)
-#    print(scanner_lut_read.dtype)
+        # bool that decides whether the scanner has energy and whether it is
+        # meaningful to read energy
+        if read_energy is None:
+            read_energy: bool = len(header.scanner.energy_bin_edges) <= 1
+
+        # read the detector coordinate look up table
+        scanner_lut = np.array(
+            [[det.x, det.y, det.z] for det in header.scanner.detectors],
+            dtype=np.float32,
+        )
+
+        # loop over all time blocks and read all meaningful event attributes
+        for time_block in reader.read_time_blocks():
+            if read_tof and read_energy:
+                event_attribute_list = [
+                    [
+                        e.detector_1_id,
+                        e.detector_2_id,
+                        e.tof_idx,
+                        e.energy_1_idx,
+                        e.energy_2_idx,
+                    ]
+                    for e in time_block.prompt_events
+                ]
+            elif read_tof and (not read_energy):
+                event_attribute_list = [
+                    [
+                        e.detector_1_id,
+                        e.detector_2_id,
+                        e.tof_idx,
+                    ]
+                    for e in time_block.prompt_events
+                ]
+            elif (not read_tof) and read_energy:
+                event_attribute_list = [
+                    [
+                        e.detector_1_id,
+                        e.detector_2_id,
+                        e.energy_1_idx,
+                        e.energy_2_idx,
+                    ]
+                    for e in time_block.prompt_events
+                ]
+            else:
+                event_attribute_list = [
+                    [
+                        e.detector_1_id,
+                        e.detector_2_id,
+                    ]
+                    for e in time_block.prompt_events
+                ]
+
+    return np.array(event_attribute_list), scanner_lut
