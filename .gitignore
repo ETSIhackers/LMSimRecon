@@ -5,3 +5,6 @@
 ~$*
 *~
 *.bak
+
+# user defined things
+figs/*

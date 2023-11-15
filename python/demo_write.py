@@ -6,6 +6,7 @@ import array_api_compat.numpy as np
 import matplotlib.pyplot as plt
 from array_api_compat import to_device
 from io_yardl import write_yardl
+from pathlib import Path
 
 # device variable (cpu or cuda) that determines whether calculations
 # are performed on the cpu or cuda gpu
@@ -122,22 +123,27 @@ print(f"number of events: {event_det_id_1.shape[0]}")
 scanner_lut = lor_descriptor.scanner.all_lor_endpoints
 
 # write the data to PETSIRD
-write_yardl(event_det_id_1, event_det_id_2, scanner_lut, output_file="write_test.prd")
+write_yardl(
+    event_det_id_1, event_det_id_2, scanner_lut, output_file="../data/write_test.prd"
+)
 
 # HACK: write the sensitivity image to file
-np.save("sensitivity_image.npy", sens_img)
+np.save("../data/sensitivity_image.npy", sens_img)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
+
+fig_dir = Path("../figs")
+fig_dir.mkdir(exist_ok=True)
 
 vmax = 1.2 * img.max()
-fig2, ax2 = plt.subplots(1, img.shape[2], figsize=(img.shape[2] * 2, 2))
+fig, ax = plt.subplots(1, img.shape[2], figsize=(img.shape[2] * 2, 2))
 for i in range(img.shape[2]):
-    ax2[i].imshow(
+    ax[i].imshow(
         np.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
-    ax2[i].set_title(f"ground truth sl {i+1}", fontsize="small")
+    ax[i].set_title(f"ground truth sl {i+1}", fontsize="small")
 
-fig2.tight_layout()
-fig2.savefig("simulated_phantom.png")
+fig.tight_layout()
+fig.savefig(fig_dir / "simulated_phantom.png")

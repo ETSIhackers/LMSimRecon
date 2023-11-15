@@ -5,7 +5,7 @@ import array_api_compat.numpy as np
 from array_api_compat import to_device
 import matplotlib.pyplot as plt
 from io_yardl import read_yardl
-
+from pathlib import Path
 
 dev = "cpu"
 
@@ -20,13 +20,13 @@ num_subsets = 20
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
-event_det_id_1, event_det_id_2, scanner_lut = read_yardl("write_test.prd")
+event_det_id_1, event_det_id_2, scanner_lut = read_yardl("../data/write_test.prd")
 
 xstart = scanner_lut[event_det_id_1, :]
 xend = scanner_lut[event_det_id_2, :]
 
 # HACK: load the sensitivity image
-sens_img = np.load("sensitivity_image.npy")
+sens_img = np.load("../data/sensitivity_image.npy")
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -63,13 +63,16 @@ for it in range(num_iter):
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
+fig_dir = Path("../figs")
+fig_dir.mkdir(exist_ok=True)
+
 vmax = 0.055
 fig, ax = plt.subplots(1, recon.shape[2], figsize=(recon.shape[2] * 2, 2))
 for i in range(recon.shape[2]):
     ax[i].imshow(
         np.asarray(to_device(recon[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
-    ax[i].set_title(f"ground truth sl {i+1}", fontsize="small")
+    ax[i].set_title(f"LM recon sl {i+1}", fontsize="small")
 
 fig.tight_layout()
-fig.savefig("lm_reconstruction.png")
+fig.savefig(fig_dir / "lm_reconstruction.png")
