@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import parallelproj
-import array_api_compat.numpy as np
 from array_api_compat import to_device
 import matplotlib.pyplot as plt
 from io_yardl import read_prd_to_numpy_arrays
 from pathlib import Path
+
+import array_api_compat.numpy as np
+import numpy.array_api as xp
 
 dev = "cpu"
 lm_data_dir: str = "../data/sim_LM_acq_1"
@@ -26,16 +28,16 @@ img_origin = [-168.91, -168.91, -9.31]
 # TODO: used array structures with named columns
 
 event_attributes, scanner_lut = read_prd_to_numpy_arrays(
-    str(Path(lm_data_dir) / prd_file), read_tof=False, read_energy=False
+    str(Path(lm_data_dir) / prd_file), xp, dev, read_tof=False, read_energy=False
 )
 
-xstart = scanner_lut[event_attributes[:, 0], :]
-xend = scanner_lut[event_attributes[:, 1], :]
+xstart = xp.take(scanner_lut, event_attributes[:, 0], axis=0)
+xend = xp.take(scanner_lut, event_attributes[:, 1], axis=0)
 
 # HACK: write the sensitivity image to file
 # this is currently needed since it is not agreed on how to store
 # all valid detector pair combinations + attn / sens values in the PRD file
-sens_img = np.load(Path(lm_data_dir) / sens_img_file).astype(np.float32)
+sens_img = xp.asarray(np.load(Path(lm_data_dir) / sens_img_file), device=dev)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -44,10 +46,10 @@ sens_img = np.load(Path(lm_data_dir) / sens_img_file).astype(np.float32)
 # ----------------------------------------------------------------------------
 
 res_model = parallelproj.GaussianFilterOperator(
-    img_shape, sigma=4.5 / (2.355 * np.asarray(voxel_size))
+    img_shape, sigma=4.5 / (2.355 * xp.asarray(voxel_size))
 )
 
-recon = np.ones(img_shape, dtype=np.float32, device=dev)
+recon = xp.ones(img_shape, dtype=xp.float32, device=dev)
 
 for it in range(num_iter):
     for isub in range(num_subsets):
@@ -79,7 +81,7 @@ vmax = 0.055
 fig, ax = plt.subplots(1, recon.shape[2], figsize=(recon.shape[2] * 2, 2))
 for i in range(recon.shape[2]):
     ax[i].imshow(
-        np.asarray(to_device(recon[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+        xp.asarray(to_device(recon[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
     ax[i].set_title(f"LM recon sl {i+1}", fontsize="small")
 

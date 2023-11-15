@@ -3,7 +3,9 @@ import sys
 
 sys.path.append("../PETSIRD/python")
 import prd
-import numpy as np
+
+import numpy.array_api as np
+from types import ModuleType
 
 
 def write_prd_from_numpy_arrays(
@@ -99,7 +101,11 @@ def write_prd_from_numpy_arrays(
 
 
 def read_prd_to_numpy_arrays(
-    prd_file: str, read_tof: bool | None = None, read_energy: bool | None = None
+    prd_file: str,
+    xp: ModuleType,
+    dev: str,
+    read_tof: bool | None = None,
+    read_energy: bool | None = None,
 ) -> tuple[np.array[int], np.array[int], np.array[float]]:
     """Reads a yardl list mode file and returns two detector arrays and a scanner lookup table.
 
@@ -125,9 +131,10 @@ def read_prd_to_numpy_arrays(
             read_energy: bool = len(header.scanner.energy_bin_edges) <= 1
 
         # read the detector coordinate look up table
-        scanner_lut = np.array(
+        scanner_lut = xp.asarray(
             [[det.x, det.y, det.z] for det in header.scanner.detectors],
             dtype=np.float32,
+            device=dev,
         )
 
         # loop over all time blocks and read all meaningful event attributes
@@ -171,4 +178,4 @@ def read_prd_to_numpy_arrays(
                     for e in time_block.prompt_events
                 ]
 
-    return np.array(event_attribute_list), scanner_lut
+    return xp.asarray(event_attribute_list, device=dev), scanner_lut
