@@ -7,9 +7,18 @@ from prd_io import read_prd_to_numpy_arrays
 from pathlib import Path
 
 import array_api_compat.numpy as np
-import numpy.array_api as xp
 
+#----------------------------------------------------------------
+#-- Choose you favorite python backend and device here ----------
+#----------------------------------------------------------------
+
+# import numpy.array_api as xp
+import array_api_compat.torch as xp
 dev = "cpu"
+
+#----------------------------------------------------------------
+#----------------------------------------------------------------
+
 lm_data_dir: str = "../data/sim_LM_acq_1"
 sens_img_file: str = "sensitivity_image.npy"
 prd_file: str = "simulated_lm.prd"

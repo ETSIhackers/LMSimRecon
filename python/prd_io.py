@@ -133,7 +133,7 @@ def read_prd_to_numpy_arrays(
         # read the detector coordinate look up table
         scanner_lut = xp.asarray(
             [[det.x, det.y, det.z] for det in header.scanner.detectors],
-            dtype=np.float32,
+            dtype=xp.float32,
             device=dev,
         )
 
