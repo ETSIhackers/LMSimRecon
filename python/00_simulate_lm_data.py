@@ -61,15 +61,20 @@ num_ax = 2 * lor_descriptor.scanner.num_modules
 img_shape = (num_trans, num_trans, num_ax)
 n0, n1, n2 = img_shape
 
-# setup an image containing a box
-
-img = xp.asarray(
+# setup the image for the 1st time frame
+img_f1 = xp.asarray(
     np.tile(np.load("../data/SL.npy")[..., None], (1, 1, num_ax)),
     device=dev,
     dtype=xp.float32,
 )
-img[:, :, :2] = 0
-img[:, :, -2:] = 0
+img_f1[:, :, :2] = 0
+img_f1[:, :, -2:] = 0
+
+img_f1 /= xp.max(img_f1)
+
+# setup the image for the 2nd time frame
+img_f2 = xp.sqrt(img_f1)
+
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -89,31 +94,41 @@ projector.tof = True  # set this to True to get a time of flight projector
 num_tof_bins = projector.tof_parameters.num_tofbins
 
 # forward project the image
-noise_free_sinogram = projector(img)
+noise_free_sinogram_f1 = projector(img_f1)
+noise_free_sinogram_f2 = projector(img_f2)
 
 # rescale the forward projection and image such that we get the expected number of trues
-scale = expected_num_trues / float(xp.sum(noise_free_sinogram))
-noise_free_sinogram *= scale
-img *= scale
+scale = expected_num_trues / float(xp.sum(noise_free_sinogram_f1))
+noise_free_sinogram_f1 *= scale
+noise_free_sinogram_f2 *= scale
+img_f1 *= scale
+img_f2 *= scale
 
 # calculate the sensitivity image
 sens_img = projector.adjoint(
-    xp.ones(noise_free_sinogram.shape, device=dev, dtype=xp.float32)
+    xp.ones(noise_free_sinogram_f1.shape, device=dev, dtype=xp.float32)
 )
 
 # add poisson noise to the noise free sinogram
-noisy_sinogram = xp.asarray(
-    np.random.poisson(np.asarray(to_device(noise_free_sinogram, "cpu"))), device=dev
+noisy_sinogram_f1 = xp.asarray(
+    np.random.poisson(np.asarray(to_device(noise_free_sinogram_f1, "cpu"))), device=dev
+)
+noisy_sinogram_f2 = xp.asarray(
+    np.random.poisson(np.asarray(to_device(noise_free_sinogram_f2, "cpu"))), device=dev
 )
 
 # -------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------
 
-event_det_id_1, event_det_id_2, event_tof_bin = utils.noisy_tof_sinogram_to_lm(
-    noisy_sinogram, lor_descriptor, xp, dev
+event_det_id_1_f1, event_det_id_2_f1, event_tof_bin_f1 = utils.noisy_tof_sinogram_to_lm(
+    noisy_sinogram_f1, lor_descriptor, xp, dev
 )
-print(f"number of simulated events: {event_det_id_1.shape[0]}")
+event_det_id_1_f2, event_det_id_2_f2, event_tof_bin_f2 = utils.noisy_tof_sinogram_to_lm(
+    noisy_sinogram_f2, lor_descriptor, xp, dev
+)
+print(f"number of simulated events f1: {event_det_id_1_f1.shape[0]}")
+print(f"number of simulated events f2: {event_det_id_1_f2.shape[0]}")
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -153,10 +168,10 @@ scanner_information = prd.ScannerInformation(
 
 # write the data to PETSIRD
 write_prd_from_numpy_arrays(
-    event_det_id_1,
-    event_det_id_2,
+    [event_det_id_1_f1, event_det_id_1_f2],
+    [event_det_id_2_f1, event_det_id_2_f2],
     scanner_information,
-    tof_idx_array=event_tof_bin,
+    tof_idx_array_blocks=[event_tof_bin_f1, event_tof_bin_f2],
     output_file=str(Path(output_dir) / output_prd_file),
 )
 print(f"wrote PETSIRD LM file to {str(Path(output_dir) / output_prd_file)}")
@@ -179,13 +194,22 @@ print(f"wrote sensitivity image to {str(Path(output_dir) / output_sens_img_file)
 fig_dir = Path("../figs")
 fig_dir.mkdir(exist_ok=True)
 
-vmax = 1.2 * xp.max(img)
-fig, ax = plt.subplots(1, img.shape[2], figsize=(img.shape[2] * 2, 2))
-for i in range(img.shape[2]):
-    ax[i].imshow(
-        xp.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+vmax = 1.2 * xp.max(img_f1)
+fig, ax = plt.subplots(
+    2, img_shape[2], figsize=(img_shape[2] * 2, 2 * 2), sharex=True, sharey=True
+)
+for i in range(img_shape[2]):
+    ax[0, i].imshow(
+        xp.asarray(to_device(img_f1[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
-    ax[i].set_title(f"ground truth sl {i+1}", fontsize="small")
+    ax[0, i].set_title(f"sl {i+1}", fontsize="small")
+
+    ax[1, i].imshow(
+        xp.asarray(to_device(img_f2[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+    )
+
+ax[0, 0].set_ylabel("ground truth frame 1", fontsize="small")
+ax[1, 0].set_ylabel("ground truth frame 2", fontsize="small")
 
 fig.tight_layout()
 fig.savefig(fig_dir / "simulated_phantom.png")

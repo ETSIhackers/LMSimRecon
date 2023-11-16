@@ -31,7 +31,12 @@ num_subsets: int = 20
 
 # read the LM file header and all event attributes
 header, event_attributes = read_prd_to_numpy_arrays(
-    str(Path(lm_data_dir) / prd_file), xp, dev, read_tof=None, read_energy=False
+    str(Path(lm_data_dir) / prd_file),
+    xp,
+    dev,
+    read_tof=None,
+    read_energy=False,
+    time_block_ids=range(1, 2),
 )
 
 # read the detector coordinates into a 2D lookup table
