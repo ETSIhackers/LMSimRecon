@@ -4,17 +4,17 @@ import sys
 sys.path.append("../PETSIRD/python")
 import prd
 
-import numpy.array_api as np
+from collections.abc import Sequence
 from types import ModuleType
 
 
 def write_prd_from_numpy_arrays(
-    detector_1_id_array: np.array[int],
-    detector_2_id_array: np.array[int],
-    scanner_lut: np.array[float, float],
-    tof_idx_array: np.array[int] | None = None,
-    energy_1_idx_array: np.array[int] | None = None,
-    energy_2_idx_array: np.array[int] | None = None,
+    detector_1_id_array: Sequence[int],
+    detector_2_id_array: Sequence[int],
+    scanner_lut: Sequence[Sequence[float]],
+    tof_idx_array: Sequence[int] | None = None,
+    energy_1_idx_array: Sequence[int] | None = None,
+    energy_2_idx_array: Sequence[int] | None = None,
     output_file: str | None = None,
     num_events: int | None = None,
 ) -> None:
@@ -22,18 +22,18 @@ def write_prd_from_numpy_arrays(
 
     Parameters
     ----------
-    detector_1_id_array : np.array[int]
+    detector_1_id_array : Sequence[int]
         array containing the detector 1 id for each event
-    detector_2_id_array : np.array[int]
+    detector_2_id_array : Sequence[int]
         array containing the detector 2 id for each event
-    scanner_lut : np.array[float, float]
+    scanner_lut : Sequence[Sequence[float]]
         a 2D float array of size (num_det, 3) containing the world
         coordinates of each detector (in mm)
-    tof_idx_array : np.array[int] | None, optional
+    tof_idx_array : Sequence[int] | None, optional
         array containing the tof bin index of each event
-    energy_1_idx_array : np.array[int] | None, optional
+    energy_1_idx_array : Sequence[int] | None, optional
         array containing the energy 1 index of each event
-    energy_2_idx_array : np.array[int] | None, optional
+    energy_2_idx_array : Sequence[int] | None, optional
         array containing the energy 2 index of each event
     output_file : str | None, optional
         output file, if None write to stdout
@@ -42,7 +42,9 @@ def write_prd_from_numpy_arrays(
     """
 
     if num_events is None:
-        num_events = detector_1_id_array.shape[0]
+        n_events: int = len(detector_1_id_array)
+    else:
+        n_events: int = num_events
 
     detector_list = [
         prd.Detector(
@@ -54,7 +56,7 @@ def write_prd_from_numpy_arrays(
     scanner_information = prd.ScannerInformation(detectors=detector_list)
 
     events = []
-    for i in range(num_events):
+    for i in range(n_events):
         det_id_1 = int(detector_1_id_array[i])
         det_id_2 = int(detector_2_id_array[i])
 
@@ -106,16 +108,31 @@ def read_prd_to_numpy_arrays(
     dev: str,
     read_tof: bool | None = None,
     read_energy: bool | None = None,
-) -> tuple[np.array[int], np.array[int], np.array[float]]:
-    """Reads a yardl list mode file and returns two detector arrays and a scanner lookup table.
+) -> tuple[Sequence[Sequence[int]], Sequence[Sequence[float]]]:
+    """Read all time blocks of a PETSIRD listmode file
 
-    Args:
-        prd_file (str): File to read from.
+    Parameters
+    ----------
+    prd_file : str
+        the PETSIRD listmode file
+    xp : ModuleType
+        the array backend module
+    dev : str
+        device used for the returned arrays
+    read_tof : bool | None, optional
+        read the TOF bin information of every event
+        default None means that is is auto determined
+        based on the scanner information (length of tof bin edges)
+    read_energy : bool | None, optional
+        read the energy information of every event
+        default None means that is is auto determined
+        based on the scanner information (length of energy bin edges)
 
-    Returns:
-        tuple[np.array[int], np.array[int], np.array[float]]: Two detector arrays and a scanner lookup table.
+    Returns
+    -------
+    tuple[Sequence[Sequence[int]], Sequence[Sequence[float]]]
+        2D array containing all event attributes, detector coordinate look up table
     """
-
     with prd.BinaryPrdExperimentReader(prd_file) as reader:
         # Read header and build lookup table
         header = reader.read_header()
@@ -123,12 +140,16 @@ def read_prd_to_numpy_arrays(
         # bool that decides whether the scanner has TOF and whether it is
         # meaningful to read TOF
         if read_tof is None:
-            read_tof: bool = len(header.scanner.tof_bin_edges) <= 1
+            r_tof: bool = len(header.scanner.tof_bin_edges) <= 1
+        else:
+            r_tof = read_tof
 
         # bool that decides whether the scanner has energy and whether it is
         # meaningful to read energy
         if read_energy is None:
-            read_energy: bool = len(header.scanner.energy_bin_edges) <= 1
+            r_energy: bool = len(header.scanner.energy_bin_edges) <= 1
+        else:
+            r_energy = read_energy
 
         # read the detector coordinate look up table
         scanner_lut = xp.asarray(
@@ -139,7 +160,7 @@ def read_prd_to_numpy_arrays(
 
         # loop over all time blocks and read all meaningful event attributes
         for time_block in reader.read_time_blocks():
-            if read_tof and read_energy:
+            if r_tof and r_energy:
                 event_attribute_list = [
                     [
                         e.detector_1_id,
@@ -150,7 +171,7 @@ def read_prd_to_numpy_arrays(
                     ]
                     for e in time_block.prompt_events
                 ]
-            elif read_tof and (not read_energy):
+            elif r_tof and (not r_energy):
                 event_attribute_list = [
                     [
                         e.detector_1_id,
@@ -159,7 +180,7 @@ def read_prd_to_numpy_arrays(
                     ]
                     for e in time_block.prompt_events
                 ]
-            elif (not read_tof) and read_energy:
+            elif (not r_tof) and r_energy:
                 event_attribute_list = [
                     [
                         e.detector_1_id,

@@ -112,7 +112,7 @@ np.random.shuffle(event_sino_inds)
 event_det_id_1 = sino_det_start_index[event_sino_inds]
 event_det_id_2 = sino_det_end_index[event_sino_inds]
 
-print(f"number of events: {event_det_id_1.shape[0]}")
+print(f"number of simulated events: {event_det_id_1.shape[0]}")
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -131,11 +131,13 @@ write_prd_from_numpy_arrays(
     scanner_lut,
     output_file=str(Path(output_dir) / output_prd_file),
 )
+print(f"saved PETSIRD LM file to {str(Path(output_dir) / output_prd_file)}")
 
 # HACK: write the sensitivity image to file
 # this is currently needed since it is not agreed on how to store
 # all valid detector pair combinations + attn / sens values in the PRD file
 np.save(Path(output_dir) / output_sens_img_file, sens_img)
+print(f"saved sensitivity image to {str(Path(output_dir) / output_sens_img_file)}")
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
