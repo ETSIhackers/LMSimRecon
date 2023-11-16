@@ -5,7 +5,7 @@ sys.path.append("../PETSIRD/python")
 
 import prd
 import parallelproj
-import utils
+import parallelproj_utils
 import array_api_compat.numpy as np
 import matplotlib.pyplot as plt
 from array_api_compat import to_device
@@ -41,7 +41,7 @@ Path(output_dir).mkdir(exist_ok=True, parents=True)
 
 # setup a line of response descriptor that describes the LOR start / endpoints of
 # a "narrow" clinical PET scanner with 9 rings
-lor_descriptor = utils.DemoPETScannerLORDescriptor(
+lor_descriptor = parallelproj_utils.DemoPETScannerLORDescriptor(
     xp, dev, num_rings=4, radial_trim=141
 )
 
@@ -79,7 +79,7 @@ img[:, :, -2:] = 0
 res_model = parallelproj.GaussianFilterOperator(
     img_shape, sigma=4.5 / (2.355 * xp.asarray(voxel_size))
 )
-projector = utils.RegularPolygonPETProjector(
+projector = parallelproj_utils.RegularPolygonPETProjector(
     lor_descriptor, img_shape, voxel_size, resolution_model=res_model
 )
 projector.tof = True  # set this to True to get a time of flight projector
