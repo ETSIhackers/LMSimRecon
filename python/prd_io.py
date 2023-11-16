@@ -11,12 +11,11 @@ from types import ModuleType
 def write_prd_from_numpy_arrays(
     detector_1_id_array: Array,
     detector_2_id_array: Array,
-    scanner_lut: Array,
+    scanner_information: prd.ScannerInformation,
     tof_idx_array: Array | None = None,
     energy_1_idx_array: Array | None = None,
     energy_2_idx_array: Array | None = None,
     output_file: str | None = None,
-    num_events: int | None = None,
 ) -> None:
     """Write a PRD file from numpy arrays. Currently all into one time block
 
@@ -26,9 +25,9 @@ def write_prd_from_numpy_arrays(
         array containing the detector 1 id for each event
     detector_2_id_array : Array
         array containing the detector 2 id for each event
-    scanner_lut : Array
-        a 2D float array of size (num_det, 3) containing the world
-        coordinates of each detector (in mm)
+    scanner_information : prd.ScannerInformation
+        description of the scanner according to PETSIRD
+        (e.g. including all detector coordinates)
     tof_idx_array : Array | None, optional
         array containing the tof bin index of each event
     energy_1_idx_array : Array | None, optional
@@ -37,30 +36,12 @@ def write_prd_from_numpy_arrays(
         array containing the energy 2 index of each event
     output_file : str | None, optional
         output file, if None write to stdout
-    num_events : int | None, optional
-        number of events to write, if None write all events
     """
 
-    if num_events is None:
-        n_events: int = detector_1_id_array.size
-    else:
-        n_events: int = num_events
-
-    detector_list = []
-    for i in range(scanner_lut.shape[0]):
-        detector_list.append(
-            prd.Detector(
-                id=int(i),
-                x=float(scanner_lut[i, 0]),
-                y=float(scanner_lut[i, 1]),
-                z=float(scanner_lut[i, 2]),
-            )
-        )
-
-    scanner_information = prd.ScannerInformation(detectors=detector_list)
+    num_events: int = detector_1_id_array.size
 
     events = []
-    for i in range(n_events):
+    for i in range(num_events):
         det_id_1 = int(detector_1_id_array[i])
         det_id_2 = int(detector_2_id_array[i])
 

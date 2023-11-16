@@ -1,5 +1,9 @@
 from __future__ import annotations
+import sys
 
+sys.path.append("../PETSIRD/python")
+
+import prd
 import parallelproj
 import utils
 import array_api_compat.numpy as np
@@ -9,7 +13,7 @@ from prd_io import write_prd_from_numpy_arrays
 from pathlib import Path
 
 # ----------------------------------------------------------------
-# -- Choose you favorite array backend and device here -i---------
+# -- Choose you favorite array backend and device here -----------
 # ----------------------------------------------------------------
 
 import numpy.array_api as xp
@@ -140,11 +144,25 @@ print(f"number of simulated events: {event_det_id_1.shape[0]}")
 # this is a 2D array of shape (num_detectors, 3)
 scanner_lut = lor_descriptor.scanner.all_lor_endpoints
 
+# generate a list of detector coordinates of our scanner
+detector_list = []
+for i in range(scanner_lut.shape[0]):
+    detector_list.append(
+        prd.Detector(
+            id=int(i),
+            x=float(scanner_lut[i, 0]),
+            y=float(scanner_lut[i, 1]),
+            z=float(scanner_lut[i, 2]),
+        )
+    )
+
+scanner_information = prd.ScannerInformation(detectors=detector_list)
+
 # write the data to PETSIRD
 write_prd_from_numpy_arrays(
     event_det_id_1,
     event_det_id_2,
-    scanner_lut,
+    scanner_information,
     output_file=str(Path(output_dir) / output_prd_file),
 )
 print(f"saved PETSIRD LM file to {str(Path(output_dir) / output_prd_file)}")
@@ -165,10 +183,10 @@ fig_dir.mkdir(exist_ok=True)
 vmax = 1.2 * xp.max(img)
 fig, ax = plt.subplots(1, img.shape[2], figsize=(img.shape[2] * 2, 2))
 for i in range(img.shape[2]):
-    ax[i].imshow(
-        xp.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
-    )
-    ax[i].set_title(f"ground truth sl {i+1}", fontsize="small")
+   ax[i].imshow(
+       xp.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+   )
+   ax[i].set_title(f"ground truth sl {i+1}", fontsize="small")
 
 fig.tight_layout()
 fig.savefig(fig_dir / "simulated_phantom.png")
