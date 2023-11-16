@@ -19,4 +19,5 @@ dependencies:
   - xtensor-fftw>=0.2.5
   - xtensor>=0.24.2
   - parallelproj>=1.6.1
-  - scipy
+  - pytorch>=2.0
+  - array-api-compat>=1.4
