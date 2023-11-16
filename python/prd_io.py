@@ -93,7 +93,7 @@ def read_prd_to_numpy_arrays(
     dev: str,
     read_tof: bool | None = None,
     read_energy: bool | None = None,
-) -> tuple[Array, Array]:
+) -> tuple[prd.types.Header, Array]:
     """Read all time blocks of a PETSIRD listmode file
 
     Parameters
@@ -115,8 +115,8 @@ def read_prd_to_numpy_arrays(
 
     Returns
     -------
-    tuple[Array, Array]
-        2D array containing all event attributes, 2D array with detector coordinate look up table
+    tuple[prd.types.Header, Array]
+        PRD listmode file header, 2D array containing all event attributes
     """
     with prd.BinaryPrdExperimentReader(prd_file) as reader:
         # Read header and build lookup table
@@ -125,23 +125,16 @@ def read_prd_to_numpy_arrays(
         # bool that decides whether the scanner has TOF and whether it is
         # meaningful to read TOF
         if read_tof is None:
-            r_tof: bool = len(header.scanner.tof_bin_edges) <= 1
+            r_tof: bool = len(header.scanner.tof_bin_edges) > 1
         else:
             r_tof = read_tof
 
         # bool that decides whether the scanner has energy and whether it is
         # meaningful to read energy
         if read_energy is None:
-            r_energy: bool = len(header.scanner.energy_bin_edges) <= 1
+            r_energy: bool = len(header.scanner.energy_bin_edges) > 1
         else:
             r_energy = read_energy
-
-        # read the detector coordinate look up table
-        scanner_lut = xp.asarray(
-            [[det.x, det.y, det.z] for det in header.scanner.detectors],
-            dtype=xp.float32,
-            device=dev,
-        )
 
         # loop over all time blocks and read all meaningful event attributes
         for time_block in reader.read_time_blocks():
@@ -184,4 +177,4 @@ def read_prd_to_numpy_arrays(
                     for e in time_block.prompt_events
                 ]
 
-    return xp.asarray(event_attribute_list, device=dev), scanner_lut
+    return header, xp.asarray(event_attribute_list, device=dev)
