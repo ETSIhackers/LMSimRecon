@@ -6,6 +6,7 @@ sys.path.append("../PETSIRD/python")
 import prd
 import parallelproj
 import parallelproj_utils
+import utils
 import array_api_compat.numpy as np
 import matplotlib.pyplot as plt
 from array_api_compat import to_device
@@ -84,6 +85,9 @@ projector = parallelproj_utils.RegularPolygonPETProjector(
 )
 projector.tof = True  # set this to True to get a time of flight projector
 
+# repeat number of TOF bin times here
+num_tof_bins = projector.tof_parameters.num_tofbins
+
 # forward project the image
 noise_free_sinogram = projector(img)
 
@@ -101,50 +105,14 @@ sens_img = projector.adjoint(
 noisy_sinogram = xp.asarray(
     np.random.poisson(np.asarray(to_device(noise_free_sinogram, "cpu"))), device=dev
 )
-# ravel the noisy sinogram and the detector start and end "index" sinograms
-noisy_sinogram = xp.reshape(noisy_sinogram, (noisy_sinogram.size,))
 
-# get the two dimensional indices of all sinogram bins
-start_mods, end_mods, start_inds, end_inds = lor_descriptor.get_lor_indices()
+# -------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
 
-# generate two sinograms that contain the linearized detector start and end indices
-sino_det_start_index = (
-    lor_descriptor.scanner.num_lor_endpoints_per_module[0] * start_mods + start_inds
+event_det_id_1, event_det_id_2, event_tof_bin = utils.noisy_tof_sinogram_to_lm(
+    noisy_sinogram, lor_descriptor, xp, dev
 )
-sino_det_end_index = (
-    lor_descriptor.scanner.num_lor_endpoints_per_module[0] * end_mods + end_inds
-)
-
-# repeat number of TOF bin times here
-num_tof_bins = projector.tof_parameters.num_tofbins
-
-sino_det_start_index = xp.reshape(
-    xp.stack(num_tof_bins * [sino_det_start_index], axis=-1),
-    sino_det_start_index.size * num_tof_bins,
-)
-
-sino_det_end_index = xp.reshape(
-    xp.stack(num_tof_bins * [sino_det_end_index], axis=-1),
-    sino_det_end_index.size * num_tof_bins,
-)
-
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
-# --- convert the index sinograms in to listmode data ------------------------
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
-
-# generate listmode data from the noisy sinogram
-event_sino_inds = np.repeat(np.arange(noisy_sinogram.shape[0]), noisy_sinogram)
-# shuffle the event sinogram indices
-np.random.shuffle(event_sino_inds)
-# convert event sino indices to xp array
-event_sino_inds = xp.asarray(event_sino_inds, device=dev)
-
-event_det_id_1 = xp.take(sino_det_start_index, event_sino_inds)
-event_det_id_2 = xp.take(sino_det_end_index, event_sino_inds)
-event_tof_bin = event_sino_inds % num_tof_bins
-
 print(f"number of simulated events: {event_det_id_1.shape[0]}")
 
 # ----------------------------------------------------------------------------
