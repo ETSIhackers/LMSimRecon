@@ -20,16 +20,11 @@ dev = "cpu"
 # ----------------------------------------------------------------
 
 lm_data_dir: str = "../data/sim_LM_acq_1"
-sens_img_file: str = "sensitivity_image.npy"
+sens_img_file: str = "sensitivity_image.npz"
 prd_file: str = "simulated_lm.prd"
 
 num_iter: int = 2
 num_subsets: int = 20
-
-# hard coded input parameters
-voxel_size = (2.66, 2.66, 2.66)
-img_shape = (128, 128, 8)
-img_origin = [-168.91, -168.91, -9.31]
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -67,7 +62,11 @@ else:
 # HACK: write the sensitivity image to file
 # this is currently needed since it is not agreed on how to store
 # all valid detector pair combinations + attn / sens values in the PRD file
-sens_img = xp.asarray(np.load(Path(lm_data_dir) / sens_img_file), device=dev)
+sens_img_data = np.load(Path(lm_data_dir) / sens_img_file)
+sens_img = xp.asarray(sens_img_data["sens_img"], device=dev)
+img_shape = sens_img.shape
+voxel_size = xp.asarray(sens_img_data["voxel_size"], device=dev)
+img_origin = xp.asarray(sens_img_data["img_origin"], device=dev)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------

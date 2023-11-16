@@ -24,7 +24,7 @@ dev: str = "cpu"
 # ----------------------------------------------------------------
 
 output_dir: str = "../data/sim_LM_acq_1"
-output_sens_img_file: str = "sensitivity_image.npy"
+output_sens_img_file: str = "sensitivity_image.npz"
 output_prd_file: str = "simulated_lm.prd"
 expected_num_trues: float = 1e6
 
@@ -196,7 +196,12 @@ print(f"wrote PETSIRD LM file to {str(Path(output_dir) / output_prd_file)}")
 # HACK: write the sensitivity image to file
 # this is currently needed since it is not agreed on how to store
 # all valid detector pair combinations + attn / sens values in the PRD file
-np.save(Path(output_dir) / output_sens_img_file, np.asarray(to_device(sens_img, "cpu")))
+np.savez(
+    Path(output_dir) / output_sens_img_file,
+    sens_img=np.asarray(to_device(sens_img, "cpu")),
+    voxel_size=np.asarray(voxel_size),
+    img_origin=np.asarray(to_device(projector.img_origin, "cpu")),
+)
 print(f"wrote sensitivity image to {str(Path(output_dir) / output_sens_img_file)}")
 
 # -----------------------------------------------------------------------------
