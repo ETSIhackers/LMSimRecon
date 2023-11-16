@@ -5,7 +5,7 @@ import utils
 import array_api_compat.numpy as np
 import matplotlib.pyplot as plt
 from array_api_compat import to_device
-from io_yardl import write_prd_from_numpy_arrays
+from prd_io import write_prd_from_numpy_arrays
 from pathlib import Path
 
 dev: str = "cpu"
