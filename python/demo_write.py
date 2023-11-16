@@ -8,7 +8,17 @@ from array_api_compat import to_device
 from prd_io import write_prd_from_numpy_arrays
 from pathlib import Path
 
+# ----------------------------------------------------------------
+# -- Choose you favorite array backend and device here -i---------
+# ----------------------------------------------------------------
+
+import numpy.array_api as xp
+
 dev: str = "cpu"
+
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+
 output_dir: str = "../data/sim_LM_acq_1"
 output_sens_img_file: str = "sensitivity_image.npy"
 output_prd_file: str = "simulated_lm.prd"
@@ -28,7 +38,7 @@ Path(output_dir).mkdir(exist_ok=True, parents=True)
 # setup a line of response descriptor that describes the LOR start / endpoints of
 # a "narrow" clinical PET scanner with 9 rings
 lor_descriptor = utils.DemoPETScannerLORDescriptor(
-    np, dev, num_rings=4, radial_trim=141
+    xp, dev, num_rings=4, radial_trim=141
 )
 
 # ----------------------------------------------------------------------------
@@ -48,7 +58,11 @@ n0, n1, n2 = img_shape
 
 # setup an image containing a box
 
-img = np.tile(np.load("../data/SL.npy")[..., None], (1, 1, num_ax)).astype(np.float32)
+img = xp.asarray(
+    np.tile(np.load("../data/SL.npy")[..., None], (1, 1, num_ax)),
+    device=dev,
+    dtype=xp.float32,
+)
 img[:, :, :2] = 0
 img[:, :, -2:] = 0
 
@@ -59,7 +73,7 @@ img[:, :, -2:] = 0
 # ----------------------------------------------------------------------------
 
 res_model = parallelproj.GaussianFilterOperator(
-    img_shape, sigma=4.5 / (2.355 * np.asarray(voxel_size))
+    img_shape, sigma=4.5 / (2.355 * xp.asarray(voxel_size))
 )
 projector = utils.RegularPolygonPETProjector(
     lor_descriptor, img_shape, voxel_size, resolution_model=res_model
@@ -70,13 +84,13 @@ projector.tof = False  # set this to True to get a time of flight projector
 noise_free_sinogram = projector(img)
 
 # rescale the forward projection and image such that we get the expected number of trues
-scale = expected_num_trues / np.sum(noise_free_sinogram)
+scale = expected_num_trues / float(xp.sum(noise_free_sinogram))
 noise_free_sinogram *= scale
 img *= scale
 
 # calculate the sensitivity image
 sens_img = projector.adjoint(
-    np.ones(noise_free_sinogram.shape, device=dev, dtype=np.float32)
+    xp.ones(noise_free_sinogram.shape, device=dev, dtype=xp.float32)
 )
 
 # get the two dimensional indices of all sinogram bins
@@ -91,12 +105,14 @@ sino_det_end_index = (
 )
 
 # add poisson noise to the noise free sinogram
-noisy_sinogram = np.random.poisson(noise_free_sinogram)
+noisy_sinogram = xp.asarray(
+    np.random.poisson(np.asarray(to_device(noise_free_sinogram, "cpu"))), device=dev
+)
 
 # ravel the noisy sinogram and the detector start and end "index" sinograms
-noisy_sinogram = noisy_sinogram.ravel()
-sino_det_start_index = sino_det_start_index.ravel()
-sino_det_end_index = sino_det_end_index.ravel()
+noisy_sinogram = xp.reshape(noisy_sinogram, (noisy_sinogram.size,))
+sino_det_start_index = xp.reshape(sino_det_start_index, (sino_det_start_index.size,))
+sino_det_end_index = xp.reshape(sino_det_end_index, (sino_det_end_index.size,))
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -136,7 +152,7 @@ print(f"saved PETSIRD LM file to {str(Path(output_dir) / output_prd_file)}")
 # HACK: write the sensitivity image to file
 # this is currently needed since it is not agreed on how to store
 # all valid detector pair combinations + attn / sens values in the PRD file
-np.save(Path(output_dir) / output_sens_img_file, sens_img)
+np.save(Path(output_dir) / output_sens_img_file, np.asarray(to_device(sens_img, "cpu")))
 print(f"saved sensitivity image to {str(Path(output_dir) / output_sens_img_file)}")
 
 # -----------------------------------------------------------------------------
@@ -146,11 +162,11 @@ print(f"saved sensitivity image to {str(Path(output_dir) / output_sens_img_file)
 fig_dir = Path("../figs")
 fig_dir.mkdir(exist_ok=True)
 
-vmax = 1.2 * img.max()
+vmax = 1.2 * xp.max(img)
 fig, ax = plt.subplots(1, img.shape[2], figsize=(img.shape[2] * 2, 2))
 for i in range(img.shape[2]):
     ax[i].imshow(
-        np.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+        xp.asarray(to_device(img[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
     ax[i].set_title(f"ground truth sl {i+1}", fontsize="small")
 

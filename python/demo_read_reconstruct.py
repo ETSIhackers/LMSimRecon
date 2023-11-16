@@ -8,16 +8,16 @@ from pathlib import Path
 
 import array_api_compat.numpy as np
 
-#----------------------------------------------------------------
-#-- Choose you favorite python backend and device here ----------
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
+# -- Choose you favorite array backend and device here -i---------
+# ----------------------------------------------------------------
 
-# import numpy.array_api as xp
-import array_api_compat.torch as xp
+import numpy.array_api as xp
+
 dev = "cpu"
 
-#----------------------------------------------------------------
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
 
 lm_data_dir: str = "../data/sim_LM_acq_1"
 sens_img_file: str = "sensitivity_image.npy"
