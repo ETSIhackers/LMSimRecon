@@ -1,6 +1,6 @@
-# PETSIRD basic Python example
+# Simulation and Reconstruction of PETSIRD listmode data
 
-This directory contains some instructions to wrote Python code to read/write PETSIRD data. You need to `yardl generate` in the `model` directory first.
+This repository contains minimal python examples that simulate and reconstruct
+PETSIRD listmode data using the [parallelproj](https://github.com/gschramm/parallelproj) projectors.
 
-As we currently do not have a `set_up.py` for PETSIRD yet, the example file hard-codes the path to the generated files.
-Alternatives would be to use the `PYTHONPATH` environment variable or symbolic links.
+Before running the example python scripts, make sure to generate the PETSIRD yardl model.

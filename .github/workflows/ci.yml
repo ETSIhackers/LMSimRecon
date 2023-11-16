@@ -50,6 +50,8 @@ jobs:
         run: |
           cd python
           python start.py
+          python 00_simulate_lm_data.py
+          python 01_reconstruct_lm_data.py
 
       - name: Cpp
         run: |
