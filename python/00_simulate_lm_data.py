@@ -200,12 +200,12 @@ fig, ax = plt.subplots(
 )
 for i in range(img_shape[2]):
     ax[0, i].imshow(
-        xp.asarray(to_device(img_f1[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+        np.asarray(to_device(img_f1[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
     ax[0, i].set_title(f"sl {i+1}", fontsize="small")
 
     ax[1, i].imshow(
-        xp.asarray(to_device(img_f2[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+        np.asarray(to_device(img_f2[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
 
 ax[0, 0].set_ylabel("ground truth frame 1", fontsize="small")
