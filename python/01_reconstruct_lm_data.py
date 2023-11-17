@@ -144,7 +144,7 @@ vmax = 0.055
 fig, ax = plt.subplots(1, recon.shape[2], figsize=(recon.shape[2] * 2, 2))
 for i in range(recon.shape[2]):
     ax[i].imshow(
-        xp.asarray(to_device(recon[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
+        np.asarray(to_device(recon[:, :, i], "cpu")), vmin=0, vmax=vmax, cmap="Greys"
     )
     ax[i].set_title(f"LM recon sl {i+1}", fontsize="small")
 
